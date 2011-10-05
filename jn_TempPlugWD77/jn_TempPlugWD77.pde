@@ -1,4 +1,4 @@
-// Modified Jeelabs Demo sketch for an LCD connected to I2C port via MCP23008 I/O expander 
+// Modified Jeelabs sketch for an LCD connected to I2C port via MCP23008 I/O expander 
 // with added DS18B20 
 #include <PortsLCD.h> 
 #include <RF12.h> // needed to avoid a linker error :( 
@@ -7,8 +7,10 @@
 #include <DallasTemperature.h> //Version 3.6 
 #include <avr/sleep.h>
 #include <stdlib.h>
+//hook up LCD to Port 4
 PortI2C myI2C (4); 
 LiquidCrystalI2C lcd (myI2C); 
+//hook up TempPlug2 to Port 1
 OneWire ds18b20 (14); // 1-wire temperature sensors, uses DIO port 4 
 OneWire oneWire(ds18b20); // Setup a oneWire instance to communicate with any OneWire devices 
 DallasTemperature sensors(&oneWire);// Pass our oneWire reference to Dallas Temperature. 
