@@ -14,41 +14,50 @@ LiquidCrystalI2C lcd (myI2C);
 OneWire ds18b20 (14); // 1-wire temperature sensors, uses DIO port 4 
 OneWire oneWire(ds18b20); // Setup a oneWire instance to communicate with any OneWire devices 
 DallasTemperature sensors(&oneWire);// Pass our oneWire reference to Dallas Temperature. 
-float temp;
-DeviceAddress outsideThermometer = { 0x10, 0xAB, 0xD2, 0x01, 0x02, 0x08, 0x00, 0x34 }; 
+float temp1, temp2;
+//DeviceAddress outsideThermometer = { 0x10, 0xAB, 0xD2, 0x01, 0x02, 0x08, 0x00, 0x34 }; 
 float runningAvg; //was word type
 
 byte radioIsOn;
-int sendval;
+int sendval, onlyOneSens;
 MilliTimer readoutTimer,aliveTimer;
+DeviceAddress _insideThermometer,outsideThermometer;
+char temp1_2d[2], temp2_2d[2];
 
 
-void setup() { 
+void setup() {
+ onlyOneSens=0; 
  Serial.begin(57600);
  Serial.println(" ");
  Serial.println("[tempnode.3]");
  lcd.begin(16, 2);
- lcd.print("[tempnode.3]");
+ lcd.print("[TN3]");
  rf12_config();
  sensors.begin();
+ loseSomeTime(200);
+ oneWire.reset_search();
+ if (!oneWire.search(outsideThermometer)) lcd.setCursor(0,1); lcd.print("ERRo");
+ if (!oneWire.search(_insideThermometer)) lcd.setCursor(6,1); lcd.print("ERRi");
+ if (outsideThermometer==_insideThermometer) onlyOneSens=1;
  sensors.setResolution(outsideThermometer, 8); 
+ sensors.setResolution(_insideThermometer, 8); 
  sensors.requestTemperatures();
- temp=sensors.getTempC(outsideThermometer);
- lcd.setCursor(0,1);
- lcd.print(temp);
- runningAvg=21.0; //give reasonable startvalue
- runningAvg=(runningAvg+temp)/2;
+ //temp1=sensors.getTempC(outsideThermometer);
+ //first line -- headers
+ lcd.setCursor(0,0); // pos 0, sec. col
+ lcd.print("[Vb] [Rb] [Vk] [Rk]");
+ //lcd.setCursor(0,1);
+ //lcd.print(temp1);
  Serial.print("Number of sensors found:");
- Serial.println(sensors.getDeviceCount(),DEC);
- Serial.println();
- Serial.print(runningAvg,DEC);
+ int sensCount=sensors.getDeviceCount();
+ Serial.println(sensCount,DEC);
  Serial.println();
  loseSomeTime(5000);
  sensors.requestTemperatures();
- temp=sensors.getTempC(outsideThermometer);
- runningAvg=(runningAvg+temp)/2;
- lcd.setCursor(0,1);
- lcd.print(temp);
+ temp1=sensors.getTempC(outsideThermometer);
+ //temp2=sensors.getTempC(_insideThermometer);
+ lcd.setCursor(15,0);
+ lcd.print(sensCount,DEC);
  radioIsOn=1;
 } 
 
@@ -93,15 +102,23 @@ void loop() {
  if (!radioIsOn)
      loseSomeTime(readoutTimer.remaining());
  //rf12_easyPoll();
- if (readoutTimer.poll(60000)) {
+ if (readoutTimer.poll(6000)) {
    sensors.requestTemperatures();
-   //printTemperature(outsideThermometer);
-   temp=sensors.getTempC(outsideThermometer);
-   runningAvg=(3*runningAvg+(temp))/4;
-   Serial.println(runningAvg,DEC);
-   lcd.print(runningAvg);
-   lcd.setCursor(6,1);
-   lcd.print(temp);
+   if (onlyOneSens=1) {
+     temp1=sensors.getTempC(outsideThermometer);
+     dtostrf(temp1,2,0,temp1_2d);
+     //temp2=99.9;
+     lcd.setCursor(0,1);
+     lcd.print(temp1_2d);
+     lcd.setCursor(6,1);
+     lcd.print("--");
+     loseSomeTime(200);
+   } else {
+     temp2=sensors.getTempC(_insideThermometer);
+     lcd.setCursor(9,1);
+     lcd.print(temp2_2d);
+   }
+
    sendval=runningAvg*10;
    //dtostrf(runningAvg,3,1,sendval);
    char sending = rf12_easySend(&sendval, sizeof sendval); 
@@ -114,12 +131,3 @@ void loop() {
  }
 } 
 
-void printTemperature(DeviceAddress deviceAddress) { 
- float tempC = sensors.getTempC(deviceAddress); 
- if (tempC == -127.00) { 
-  Serial.print("Error"); 
- } else { 
-  temp=tempC;
-  //Serial.println(temp);
- } 
-}
